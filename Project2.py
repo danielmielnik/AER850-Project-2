@@ -3,12 +3,14 @@ from tensorflow.keras.preprocessing import image_dataset_from_directory
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.regularizers import l2
 import matplotlib.pyplot as plt
 
 # %% Step 1
 # Building the model
-seq_model = Sequential()
-seq_model.add(Conv2D(32, (3,3), activation='relu', input_shape=(500, 500, 3)))
+
+#seq_model.add(Conv2D(32, (3,3), activation='relu', input_shape=(500, 500, 3), kernel_regularizer=l2(0.001)))
 
 # Establishing Train, Validation, and Test Directories
 train_dir = 'data/train'
@@ -16,18 +18,20 @@ validation_dir = 'data/valid'
 test_dir = 'data/test'
 
 # Performing data augmentation
-train_datagen = ImageDataGenerator(shear_range=0.2, zoom_range=0.2)
-validation_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2)
-test_datagen = ImageDataGenerator(shear_range=0.2, zoom_range=0.2)
+train_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
+validation_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
+test_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.2, horizontal_flip=True)
  
 # Creating the train and validation generators
-train_generator = image_dataset_from_directory(train_dir, image_size=(500, 500), batch_size=32, label_mode='categorical')
-validation_generator = image_dataset_from_directory(validation_dir, image_size=(500, 500), batch_size=32, label_mode='categorical')
+train_generator = image_dataset_from_directory(train_dir, image_size=(500, 500), batch_size=128, label_mode='categorical')
+validation_generator = image_dataset_from_directory(validation_dir, image_size=(500, 500), batch_size=128, label_mode='categorical')
 
 # %% Model 1
 # Convolution 2D
+seq_model = Sequential()
+seq_model.add(Conv2D(32, (3,3), activation='relu', input_shape=(500, 500, 3), kernel_regularizer=l2(0.001)))
 seq_model.add(MaxPooling2D((2, 2)))
-seq_model.add(Conv2D(64, (3, 3), activation='relu'))
+seq_model.add(Conv2D(64, (3, 3), activation='relu', input_shape=(224, 224, 3)))
 seq_model.add(MaxPooling2D((2, 2)))
 seq_model.add(Conv2D(128, (3, 3), activation='relu'))
 
@@ -49,12 +53,12 @@ seq_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['a
 seq_model.summary()
 
 # Traing Model
-history = seq_model.fit(train_generator, validation_data=validation_generator, epochs=10)
+history = seq_model.fit(train_generator, validation_data=validation_generator, epochs=15)
 
 # %% Model 2
 # Convolution 2D
 model_2 = Sequential()
-model_2.add(Conv2D(32, (3,3), activation='relu', input_shape=(500, 500, 3)))
+model_2.add(Conv2D(32, (3,3), activation='relu', input_shape=(224, 224, 3)))
 model_2.add(MaxPooling2D((2, 2)))
 model_2.add(Conv2D(64, (3, 3), activation='relu'))
 model_2.add(MaxPooling2D((2, 2)))
