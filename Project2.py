@@ -2,8 +2,8 @@ import pandas as pd
 from tensorflow.keras.preprocessing import image_dataset_from_directory
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout, BatchNormalization
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 from tensorflow.keras.regularizers import l2
 from keras.optimizers import Adam
 import matplotlib.pyplot as plt
@@ -23,57 +23,52 @@ test_datagen = ImageDataGenerator(rescale=1./255, shear_range=0.2, zoom_range=0.
 train_generator = image_dataset_from_directory(train_dir, image_size=(256, 256), batch_size=128, label_mode='categorical')
 validation_generator = image_dataset_from_directory(validation_dir, image_size=(256, 256), batch_size=128, label_mode='categorical')
 
-# %% Building Model 1
-# Convolution 2D and Max Pooling
-seq_model = Sequential()
-seq_model.add(Conv2D(32, (3,3), activation='relu', input_shape=(256, 256, 3), kernel_regularizer=l2(0.001)))
-seq_model.add(MaxPooling2D((2, 2)))
-seq_model.add(Conv2D(64, (3, 3), activation='relu'))
-seq_model.add(MaxPooling2D((2, 2)))
-seq_model.add(Conv2D(128, (3, 3), activation='relu'))
-seq_model.add(MaxPooling2D((2, 2)))
-seq_model.add(Conv2D(256, (3, 3), activation='relu'))
-seq_model.add(MaxPooling2D((2, 2)))
+# %% Building Model 1 (Modified Sequential Model)
+seq_model = Sequential([
+    Conv2D(32, (3, 3), activation='relu', input_shape=(256, 256, 3), kernel_regularizer=l2(0.001)),
+    BatchNormalization(),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu', kernel_regularizer=l2(0.001)),
+    BatchNormalization(),
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu', kernel_regularizer=l2(0.001)),
+    BatchNormalization(),
+    MaxPooling2D((2, 2)),
+    Conv2D(256, (3, 3), activation='relu', kernel_regularizer=l2(0.001)),
+    BatchNormalization(),
+    MaxPooling2D((2, 2)),
+    Flatten(),
+    Dense(128, activation='relu', kernel_regularizer=l2(0.001)),
+    Dropout(0.5),
+    Dense(3, activation='softmax')
+])
 
-# Flatten Layers
-seq_model.add(Flatten())
-
-# Dense and Dropout Layers
-seq_model.add(Dense(units=128, activation='relu'))
-seq_model.add(Dropout(0.5))
-seq_model.add(Dense(units=3, activation='softmax'))
-
-# Compiling Model 1
-seq_model.compile(optimizer=Adam(learning_rate=0.000001), loss='categorical_crossentropy', metrics=['accuracy'])
-
-# Model 1 Summary
+seq_model.compile(optimizer=Adam(learning_rate=0.001), loss='categorical_crossentropy', metrics=['accuracy'])
 seq_model.summary()
 
-# Traing Model 1
-history_1 = seq_model.fit(train_generator, validation_data=validation_generator, epochs=30)
+# Training Model 1 with EarlyStopping and ReduceLROnPlateau
+early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
+lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3)
+history_1 = seq_model.fit(train_generator, validation_data=validation_generator, epochs=15, callbacks=[early_stopping, lr_scheduler])
 
-# Saving Model 1
 seq_model.save('seq_model.keras')
 
 # %% Building Model 2
 # Convolution 2D and Max Pooling
-model_2 = Sequential()
-model_2.add(Conv2D(32, (3,3), activation='relu', input_shape=(256, 256, 3)))
-model_2.add(MaxPooling2D((2, 2)))
-model_2.add(Conv2D(64, (3, 3), activation='relu'))
-model_2.add(MaxPooling2D((2, 2)))
-model_2.add(Conv2D(128, (3, 3), activation='relu'))
-model_2.add(MaxPooling2D((2, 2)))
-model_2.add(Conv2D(256, (3, 3), activation='relu'))
-model_2.add(MaxPooling2D((2, 2)))
-
-# Flatten Layers
-model_2.add(Flatten())
-
-# Dense and Dropout Layers
-model_2.add(Dense(units=128, activation='elu'))
-model_2.add(Dropout(0.5))
-model_2.add(Dense(units=3, activation='softmax'))
+model_2 = Sequential([
+    Conv2D(32, (3,3), activation='relu', input_shape=(256, 256, 3)),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Conv2D(256, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Flatten(),
+    Dense(units=128, activation='elu'),
+    Dropout(0.5),
+    Dense(units=3, activation='softmax')
+])
 
 # Compiling Model 2
 model_2.compile(optimizer='Nadam', loss='categorical_crossentropy', metrics=['accuracy'])
@@ -82,7 +77,7 @@ model_2.compile(optimizer='Nadam', loss='categorical_crossentropy', metrics=['ac
 model_2.summary()
 
 # Traing Model 2
-history_2 = model_2.fit(train_generator, validation_data=validation_generator, epochs=30)
+history_2 = model_2.fit(train_generator, validation_data=validation_generator, epochs=15)
 
 # Saving Model 2
 model_2.save('model_2.keras')
@@ -121,9 +116,4 @@ for history in history_list:
     plt.legend()
   
     plt.show()
-
-
-
-
-
 
